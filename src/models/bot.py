@@ -1,0 +1,206 @@
+import logging
+import os
+import datetime
+from time import perf_counter_ns
+from pathlib import Path
+
+import hikari
+import lightbulb
+
+from src.config import Config
+from src.models.database import Database
+from src.models.errors import ApplicationStateError
+
+class BBombsBot(lightbulb.BotApp):
+    """Subclass of lightbulb BotApp to add special functionality.
+    
+    Parameters
+    ----------
+    config : Config
+        Bot configuration file; included values will be initialised on startup.
+    """
+
+    def __init__(self, config: Config) -> None:
+        self._bot_started = False
+
+        token = config.TOKEN
+
+        if config.DEBUG_MODE and config.DEBUG_GUILD_ID:
+            default_enabled_guilds = [config.DEBUG_GUILD_ID,]
+
+        cache_cofig = hikari.impl.CacheSettings(
+            components=
+                hikari.api.CacheComponents.DM_CHANNEL_IDS
+                | hikari.api.CacheComponents.GUILDS
+                | hikari.api.CacheComponents.GUILD_CHANNELS
+                | hikari.api.CacheComponents.ME
+                | hikari.api.CacheComponents.MEMBERS
+                | hikari.api.CacheComponents.MESSAGES
+                | hikari.api.CacheComponents.ROLES, 
+            max_messages=1000, 
+            max_dm_channel_ids=50,
+        )
+
+        intents = (
+            hikari.Intents.ALL_MESSAGES
+            | hikari.Intents.MESSAGE_CONTENT
+            | hikari.Intents.ALL_MESSAGE_REACTIONS
+            | hikari.Intents.GUILDS
+            | hikari.Intents.GUILD_MEMBERS
+            | hikari.Intents.GUILD_MODERATION
+            | hikari.Intents.GUILD_INVITES
+        )
+
+        super().__init__(
+            token=token,
+            prefix='.$',
+            ignore_bots=True,
+            default_enabled_guilds=default_enabled_guilds,
+            help_class=None,
+            case_insensitive_prefix_commands=True,
+            cache_settings=cache_cofig,
+            intents=intents,
+            banner=None,
+        )
+        
+        self._config = config
+        self._user_id: hikari.Snowflake
+        self._start_time: datetime.datetime
+        self._base_dir = str(Path(os.path.abspath(__file__)).parents[2])
+        self._debug_mode = config.DEBUG_MODE
+        self._startup_guilds: list = []
+        self._embeds_colour: str = '#08333d'
+
+        self._db = Database(self)
+
+
+    @property
+    def is_started(self) -> bool:
+        """A boolean based on wether the bot has started."""
+        return self._bot_started
+
+    @property
+    def base_dir(self) -> str:
+        """The path to the root directory."""
+        return self._base_dir
+    
+    @property
+    def config(self) -> Config:
+        """The initialised configuration."""
+        return self._config
+    
+    @property
+    def user_id(self) -> hikari.Snowflake:
+        """The bots user's discord user id."""
+        if self.user_id is None:
+            raise ApplicationStateError('Bot user_id is unavailable until bot has started')
+        
+        return self._user_id
+    
+    @property
+    def start_time(self) -> datetime.datetime:
+        """The time at which the bot started."""
+        if self._start_time is None:
+            raise ApplicationStateError('Bot start_time is unavailable until bot has started')
+        
+        return self._start_time
+
+    @property
+    def db(self):
+        """The database connection of the bot."""
+        return self._db
+    
+    @property
+    def embed_colour(self):
+        """The default colour for embeds."""
+        return self._embeds_colour
+
+    def run(self) -> None:
+        """Start listeners and bot activity."""
+        self.subscribe(hikari.StartingEvent, self.on_starting)
+        self.subscribe(hikari.StartedEvent, self.on_started)
+        self.subscribe(hikari.GuildAvailableEvent, self.on_guild_available)
+        self.subscribe(lightbulb.LightbulbStartedEvent, self.on_lightbulb_started)
+        self.subscribe(hikari.GuildJoinEvent, self.on_guild_join)
+        self.subscribe(hikari.GuildLeaveEvent, self.on_guild_leave)
+        self.subscribe(hikari.StoppedEvent, self.on_stop)
+
+        super().run(
+            activity=hikari.Activity(name='you ;)', type=hikari.ActivityType.WATCHING)
+        )
+
+    async def on_starting(self, event: hikari.StartingEvent) -> None:
+        logging.info('Initialising BBombsBot...')
+
+        await self.db.connect()
+        await self.db.migrate_schema()
+
+        self.load_extensions_from(
+            os.path.join(self.base_dir, 'src', 'extensions'), must_exist=True
+        )
+
+    async def on_started(self, event: hikari.StartingEvent) -> None:
+        user = self.get_me()
+        if user: self._user_id = user.id
+
+        if self._debug_mode:
+            logging.warning('Debug mode is active')
+
+    async def on_guild_available(self, event: hikari.GuildAvailableEvent) -> None:
+        if self.is_started:
+            return
+        
+        self._startup_guilds.append(event.guild_id)
+
+    async def on_lightbulb_started(self, event: lightbulb.LightbulbStartedEvent) -> None:
+        async with self.db.pool.acquire() as con:
+            for guild in self._startup_guilds:
+                await con.execute(
+                    '''INSERT INTO guilds (guildId) VALUES ($1)
+                    ON CONFLICT (guildId) DO NOTHING''',
+                    guild
+                ) 
+
+        logging.info(f'Bot initialised as {self.get_me()} in {len(self._startup_guilds)} guilds')
+        self._startup_guilds = []
+
+        self._bot_started = True
+        self._start_time = datetime.datetime.now()
+        
+        logging.info(f'BBombsBot initialised successfuly')
+
+        self.unsubscribe(hikari.GuildAvailableEvent, self.on_guild_available)
+
+    async def on_guild_join(self, event: hikari.GuildJoinEvent) -> None:
+        await self.db.add_guild(event.guild_id)
+
+        logging.info(f'BBombsBot in new guild: {event.guild.name} ({event.guild_id})')
+
+        me = event.guild.get_my_member()
+
+        if event.guild.system_channel_id is None or me is None:
+            return
+        
+        system_channel = event.guild.get_channel(event.guild.system_channel_id)
+
+        try:
+            await system_channel.send(
+                embed=hikari.Embed(
+                    title='👋  Greetings',
+                    description=
+                        "I'm always listening for commands type `/` to see what I can do.\nIn the meantime I'll get things set up!",
+                    colour=self.embed_colour
+                ).set_thumbnail(me.avatar_url)
+            )
+        except hikari.ForbiddenError:
+            return
+
+    async def on_guild_leave(self, event: hikari.GuildLeaveEvent) -> None:
+        await self.db.remove_guild(event.guild_id)
+        logging.info(f'BBombsBot removed from guild: {event.guild_id}')
+
+    async def on_stop(self, event: hikari.StoppedEvent) -> None:
+        await self.db.close()
+        logging.info('Database has been closed.')
+
+    
