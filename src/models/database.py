@@ -25,7 +25,7 @@ class Database:
         self._pool: asyncpg.Pool
         self._pool_closed: bool = False
         self._schema_version: int
-        self._migrations_dir: str = os.path.join(self._app.base_dir, 'src', 'database', 'migrations')
+        self._migrations_dir: str = os.path.join(self._app.base_dir, 'src', 'sql', 'migrations')
 
     @property
     def app(self):
@@ -154,7 +154,7 @@ class Database:
     async def compile_schema(self) -> None:
         """Create neccesary database tables if not already present."""
         async with self.pool.acquire() as con:
-            with open(os.path.join(self._app.base_dir, 'src', 'database', 'schema.sql')) as f:
+            with open(os.path.join(self._app.base_dir, 'src', 'sql', 'schema.sql')) as f:
                 await con.execute(f.read())
 
     async def increment_schema_version(self) -> None:
@@ -179,7 +179,7 @@ class Database:
         
         Should have a run method which takes the Database class as a parameter.
         """
-        module = importlib.import_module(f'db.migrations.{file[:-3]}')
+        module = importlib.import_module(f'sql.migrations.{file[:-3]}')
         await module.run(self)
 
         logger.info(f'Updated database schema with migration {file}')
@@ -250,3 +250,19 @@ class Database:
         
         await self.pool.terminate()
         self._pool_closed = True
+
+
+# Copyright (C) 2024 BBombs
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
