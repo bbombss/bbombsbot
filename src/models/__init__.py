@@ -1,4 +1,5 @@
 from .bot import *
+from .errors import *
 
 
 # Copyright (C) 2024 BBombs

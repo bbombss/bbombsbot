@@ -1,17 +1,21 @@
-import logging
+__all__ = [
+    "DEFAULT_EMBED_COLOUR",
+    "SUCCESS_EMBED_COLOUR",
+    "WARN_EMBED_COLOUR",
+    "FAIL_EMBED_COLOUR",
+    "SUCCESS_EMOJI",
+    "CANCEL_EMOJI",
+]
 
-from src.models import BBombsBot
+import hikari
 
-try:
-    from .config import Config
-except ImportError:
-    logging.fatal("Config file not found aborting.")
-    exit(1)
+DEFAULT_EMBED_COLOUR: hikari.Colour = hikari.Colour(0x0C4B59)
+SUCCESS_EMBED_COLOUR: hikari.Colour = hikari.Colour(0x0D6623)
+WARN_EMBED_COLOUR: hikari.Colour = hikari.Colour(0xAB6B13)
+FAIL_EMBED_COLOUR: hikari.Colour = hikari.Colour(0x6B0E07)
 
-bot = BBombsBot(Config())
-
-if __name__ == "__main__":
-    bot.run()
+SUCCESS_EMOJI: str = "<:confirm:1219174344203436042>"
+CANCEL_EMOJI: str = "<:cancel:1219185372710572092>"
 
 
 # Copyright (C) 2024 BBombs

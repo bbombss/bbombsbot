@@ -1,6 +1,6 @@
-import os
-import logging
 import importlib
+import logging
+import os
 
 import asyncpg
 import hikari
@@ -25,61 +25,65 @@ class Database:
         self._pool: asyncpg.Pool
         self._pool_closed: bool = False
         self._schema_version: int
-        self._migrations_dir: str = os.path.join(self._app.base_dir, 'src', 'sql', 'migrations')
+        self._migrations_dir: str = os.path.join(
+            self._app.base_dir, "src", "sql", "migrations"
+        )
 
     @property
     def app(self):
         """Returns the current application."""
         return self._app
-    
+
     @property
     def db_name(self) -> str:
         """Returns the connected database name."""
         return self._db_name
-    
+
     @property
     def user(self) -> str:
         """Returns current database user's username."""
         return self._user
-    
+
     @property
     def host(self) -> str:
         """Returns the hostname of the database connection."""
         return self._host
-    
+
     @property
     def port(self) -> int:
         """Returns the port the database is listening on."""
         return self._port
-    
+
     @property
     def password(self) -> str:
         """Returns the password used to authenticate."""
         return self._password
-    
+
     @property
     def version(self) -> str:
         """Returns the postgresql version."""
         return self._version
-    
+
     @property
     def pool(self) -> asyncpg.Pool:
         """Returns the async connection pool."""
         return self._pool
-    
+
     @property
     def dsn(self) -> str:
         """Returns the url used to connect to the database."""
-        return f'postgres://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}'
-    
+        return f"postgres://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}"
+
     async def connect(self) -> None:
         """Connects to the database and creates a connection pool."""
         if self._pool_closed:
-            raise DatabaseStateError('Database pool has been closed')
-        
+            raise DatabaseStateError("Database pool has been closed")
+
         self._pool = await asyncpg.create_pool(dsn=self.dsn)
         await self.compile_schema()
-        self._schema_version = await self.pool.fetchval('SELECT schemaVersion FROM databaseSchema', column=0)
+        self._schema_version = await self.pool.fetchval(
+            "SELECT schemaVersion FROM databaseSchema", column=0
+        )
 
     async def execute(self, query: str, *args) -> str:
         """Execute a command on the database server.
@@ -95,9 +99,10 @@ class Database:
         -------
         output : str
             Output from the executed command.
+        
         """
         return await self.pool.execute(query, *args)
-    
+
     async def fetch(self, query: str, *args) -> list[asyncpg.Record]:
         """Execute an SQL Query and get the returned rows in a list.
 
@@ -112,9 +117,10 @@ class Database:
         -------
         records : List[asyncpg.Record]
             Results of the query returned as a list of records.
+        
         """
         return await self.pool.fetch(query, *args)
-    
+
     async def fetchrow(self, query: str, *args) -> asyncpg.Record:
         """Execute an SQL Query and get the returned row.
 
@@ -129,9 +135,10 @@ class Database:
         -------
         record : asyncpg.Record
             Results of the query returned as a record.
+        
         """
         return await self.pool.fetchrow(query, *args)
-    
+
     async def fetchval(self, query: str, *args, column: int = 0):
         """Execute an SQL Query and get the returned record.
 
@@ -148,41 +155,44 @@ class Database:
         -------
         record
             Resulting value of the query.
+        
         """
         return await self.pool.fetchval(query, *args, column=column)
-    
+
     async def compile_schema(self) -> None:
         """Create neccesary database tables if not already present."""
         async with self.pool.acquire() as con:
-            with open(os.path.join(self._app.base_dir, 'src', 'sql', 'schema.sql')) as f:
+            with open(
+                os.path.join(self._app.base_dir, "src", "sql", "schema.sql")
+            ) as f:
                 await con.execute(f.read())
 
     async def increment_schema_version(self) -> None:
         """Increment the current schema version."""
         version = await self.fetchrow(
-            'UPDATE databaseSchema SET schemaVersion = schemaVersion + 1 RETURNING schemaVersion'
+            "UPDATE databaseSchema SET schemaVersion = schemaVersion + 1 RETURNING schemaVersion"
         )
 
-        self._schema_version = version['schemaversion']
-        logger.info(f'Schema updated to version {self._schema_version}')
+        self._schema_version = version["schemaversion"]
+        logger.info(f"Schema updated to version {self._schema_version}")
 
     async def do_sql_migration(self, file: str) -> None:
         """Executes an SQL file as apart of a database migration."""
         with open(os.path.join(self._migrations_dir, file)) as f:
             await self.execute(f.read())
-        
-        logger.info(f'Updated database schema with migration {file}')
+
+        logger.info(f"Updated database schema with migration {file}")
         await self.increment_schema_version()
 
     async def do_python_migration(self, file: str) -> None:
         """Executes a python file as apart of a database migration.
-        
+
         Should have a run method which takes the Database class as a parameter.
         """
-        module = importlib.import_module(f'sql.migrations.{file[:-3]}')
+        module = importlib.import_module(f"sql.migrations.{file[:-3]}")
         await module.run(self)
 
-        logger.info(f'Updated database schema with migration {file}')
+        logger.info(f"Updated database schema with migration {file}")
         await self.increment_schema_version()
 
     async def migrate_schema(self) -> None:
@@ -190,23 +200,28 @@ class Database:
         await self.compile_schema()
 
         async with self.pool.acquire() as con:
-            version = await con.fetchval('SELECT schemaVersion FROM databaseSchema', column=0)
+            version = await con.fetchval(
+                "SELECT schemaVersion FROM databaseSchema", column=0
+            )
             if not isinstance(version, int):
-                raise ValueError(f'Expected int for schema version, not {version}')
-            
+                raise ValueError(f"Expected int for schema version, not {version}")
+
             self._schema_version = version
 
         for file in os.listdir(self._migrations_dir):
             try:
-                if file.startswith('migration_') and int(file[10]) > self._schema_version:
-                    if file.endswith('.sql'):
+                if (
+                    file.startswith("migration_")
+                    and int(file[10]) > self._schema_version
+                ):
+                    if file.endswith(".sql"):
                         await self.do_sql_migration(file)
-                    elif file.endswith('.py'):
+                    elif file.endswith(".py"):
                         await self.do_python_migration(file)
 
             except ValueError:
                 logger.warning(
-                    f"Migration filenames must include a version e.g. 'migration_1.sql'"
+                    "Migration filenames must include a version e.g. 'migration_1.sql'"
                 )
 
     async def add_guild(self, guild: hikari.Snowflake) -> None:
@@ -216,10 +231,11 @@ class Database:
         ----------
         guild : hikari.Snowflake
             Guild to add.
+        
         """
         await self.execute(
-            'INSERT INTO guilds (guildId) VALUES ($1) ON CONFLICT (guildId) DO NOTHING',
-            guild
+            "INSERT INTO guilds (guildId) VALUES ($1) ON CONFLICT (guildId) DO NOTHING",
+            guild,
         )
 
     async def remove_guild(self, guild: hikari.Snowflake) -> None:
@@ -229,25 +245,23 @@ class Database:
         ----------
         guild : hikari.Snowflake
             Guild to remove.
+        
         """
-        await self.execute(
-            'DELETE FROM guilds WHERE guildId = $1',
-            guild
-        )
+        await self.execute("DELETE FROM guilds WHERE guildId = $1", guild)
 
     async def close(self) -> None:
         """Close current connection pool."""
         if self._pool_closed:
-            raise DatabaseStateError('Database pool is already closed')
-        
+            raise DatabaseStateError("Database pool is already closed")
+
         await self.pool.close()
         self._pool_closed = True
 
     async def terminate(self) -> None:
         """Terminate current connection pool."""
         if self._pool_closed:
-            raise DatabaseStateError('Database pool is already closed')
-        
+            raise DatabaseStateError("Database pool is already closed")
+
         await self.pool.terminate()
         self._pool_closed = True
 
