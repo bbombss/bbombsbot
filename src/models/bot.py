@@ -19,7 +19,7 @@ class BBombsBot(lightbulb.BotApp):
     ----------
     config : Config
         Bot configuration file; included values will be initialised on startup.
-    
+
     """
 
     def __init__(self, config: Config) -> None:
@@ -191,7 +191,9 @@ class BBombsBot(lightbulb.BotApp):
             await system_channel.send(
                 embed=hikari.Embed(
                     title="👋  Greetings",
-                    description="I'm always listening for commands type `/` to see what I can do.\nIn the meantime I'll get things set up!",
+                    description=
+                    """I'm always listening for commands type `/` to see what I can do.
+                    In the meantime I'll get things set up!""",
                     colour=DEFAULT_EMBED_COLOUR,
                 ).set_thumbnail(me.avatar_url)
             )
