@@ -75,7 +75,7 @@ class Database:
         return f"postgres://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}"
 
     async def connect(self) -> None:
-        """Connects to the database and creates a connection pool."""
+        """Connect to the database and create a connection pool."""
         if self._pool_closed:
             raise DatabaseStateError("Database pool has been closed")
 
@@ -99,7 +99,7 @@ class Database:
         -------
         output : str
             Output from the executed command.
-        
+
         """
         return await self.pool.execute(query, *args)
 
@@ -117,7 +117,7 @@ class Database:
         -------
         records : List[asyncpg.Record]
             Results of the query returned as a list of records.
-        
+
         """
         return await self.pool.fetch(query, *args)
 
@@ -135,7 +135,7 @@ class Database:
         -------
         record : asyncpg.Record
             Results of the query returned as a record.
-        
+
         """
         return await self.pool.fetchrow(query, *args)
 
@@ -155,7 +155,7 @@ class Database:
         -------
         record
             Resulting value of the query.
-        
+
         """
         return await self.pool.fetchval(query, *args, column=column)
 
@@ -170,14 +170,15 @@ class Database:
     async def increment_schema_version(self) -> None:
         """Increment the current schema version."""
         version = await self.fetchrow(
-            "UPDATE databaseSchema SET schemaVersion = schemaVersion + 1 RETURNING schemaVersion"
+            """UPDATE databaseSchema SET schemaVersion = schemaVersion + 1
+            RETURNING schemaVersion"""
         )
 
         self._schema_version = version["schemaversion"]
         logger.info(f"Schema updated to version {self._schema_version}")
 
     async def do_sql_migration(self, file: str) -> None:
-        """Executes an SQL file as apart of a database migration."""
+        """Execute an SQL file as apart of a database migration."""
         with open(os.path.join(self._migrations_dir, file)) as f:
             await self.execute(f.read())
 
@@ -185,7 +186,7 @@ class Database:
         await self.increment_schema_version()
 
     async def do_python_migration(self, file: str) -> None:
-        """Executes a python file as apart of a database migration.
+        """Execute a python file as apart of a database migration.
 
         Should have a run method which takes the Database class as a parameter.
         """
@@ -231,21 +232,22 @@ class Database:
         ----------
         guild : hikari.Snowflake
             Guild to add.
-        
+
         """
         await self.execute(
-            "INSERT INTO guilds (guildId) VALUES ($1) ON CONFLICT (guildId) DO NOTHING",
+            """INSERT INTO guilds (guildId) VALUES ($1)
+            ON CONFLICT (guildId) DO NOTHING""",
             guild,
         )
 
     async def remove_guild(self, guild: hikari.Snowflake) -> None:
-        """Remove a guild from the database, will also remove all associated users and other data.
+        """Remove a guild and all associated data from the database.
 
         Parameters
         ----------
         guild : hikari.Snowflake
             Guild to remove.
-        
+
         """
         await self.execute("DELETE FROM guilds WHERE guildId = $1", guild)
 

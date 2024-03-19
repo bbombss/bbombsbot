@@ -5,6 +5,7 @@ __all__ = [
     "FAIL_EMBED_COLOUR",
     "SUCCESS_EMOJI",
     "CANCEL_EMOJI",
+    "INVITE_LINK_TEMPLATE",
 ]
 
 import hikari
@@ -16,6 +17,8 @@ FAIL_EMBED_COLOUR: hikari.Colour = hikari.Colour(0x6B0E07)
 
 SUCCESS_EMOJI: str = "<:confirm:1219174344203436042>"
 CANCEL_EMOJI: str = "<:cancel:1219185372710572092>"
+
+INVITE_LINK_TEMPLATE: str = "https://discord.com/oauth2/authorize?client_id={}&permissions=1099914800342&scope=bot+applications.commands"
 
 
 # Copyright (C) 2024 BBombs

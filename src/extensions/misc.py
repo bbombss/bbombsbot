@@ -6,7 +6,7 @@ import lightbulb
 import psutil
 
 from src.models import BBombsBot
-from src.static import DEFAULT_EMBED_COLOUR
+from src.static import DEFAULT_EMBED_COLOUR, INVITE_LINK_TEMPLATE
 
 misc = lightbulb.Plugin("misc")
 
@@ -32,13 +32,14 @@ async def ping(ctx: lightbulb.SlashContext):
             description=f"""Developer: **BBombs**
 Server Count: **{len(ctx.app.cache.get_guilds_view())}**
 Uptime: **{tdelta_str[0]} hours, {tdelta_str[1]} minutes**
-Invite: [Click here](https://discord.com/oauth2/authorize?client_id={me.id}&permissions=1099914800342&scope=bot+applications.commands)
+Invite: [Click here]({INVITE_LINK_TEMPLATE.format(me.id)})
 Source: [Click here](https://github.com/bbombss/bbombsbot)""",
             colour=DEFAULT_EMBED_COLOUR,
         )
         .add_field(
             name="Latency",
-            value=f"""Gateway: {ctx.bot.heartbeat_latency * 1000:,.0f}ms\nREST: {(end-start)/ 1000000:,.0f}ms""",
+            value=f"""Gateway: {ctx.bot.heartbeat_latency * 1000:,.0f}ms
+            REST: {(end-start)/ 1000000:,.0f}ms""",
         )
         .add_field(name="CPU Use", value=f"{round(psutil.cpu_percent())}%", inline=True)
         .add_field(
