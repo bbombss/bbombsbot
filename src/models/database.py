@@ -2,6 +2,7 @@ import importlib
 import logging
 import os
 
+import aiofiles
 import asyncpg
 import hikari
 
@@ -161,11 +162,10 @@ class Database:
 
     async def compile_schema(self) -> None:
         """Create neccesary database tables if not already present."""
-        async with self.pool.acquire() as con:
-            with open(
-                os.path.join(self._app.base_dir, "src", "sql", "schema.sql")
-            ) as f:
-                await con.execute(f.read())
+        async with self.pool.acquire() as con, aiofiles.open(
+            os.path.join(self._app.base_dir, "src", "sql", "schema.sql")
+        ) as f:
+            await con.execute(await f.read())
 
     async def increment_schema_version(self) -> None:
         """Increment the current schema version."""
@@ -179,8 +179,8 @@ class Database:
 
     async def do_sql_migration(self, file: str) -> None:
         """Execute an SQL file as apart of a database migration."""
-        with open(os.path.join(self._migrations_dir, file)) as f:
-            await self.execute(f.read())
+        async with aiofiles.open(os.path.join(self._migrations_dir, file)) as f:
+            await self.execute(await f.read())
 
         logger.info(f"Updated database schema with migration {file}")
         await self.increment_schema_version()

@@ -13,9 +13,9 @@ select = [
     "Q",
     "SIM",
     "RUF",
-    "T20",
     "ERA",
-    "RSE"
+    "RSE",
+    "ASYNC"
 ]
 fixable = ["F","I","D","T20","ERA"]
 ignore = ["F403","D213","D203"]
@@ -25,7 +25,6 @@ ignore = ["F403","D213","D203"]
 
 [tool.ruff.format]
 quote-style = "double"
-skip-magic-trailing-comma = true
 
 [tool.poetry]
 name = "bbombsbot"
