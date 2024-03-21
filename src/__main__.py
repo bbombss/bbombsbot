@@ -1,12 +1,31 @@
 import logging
+import os
+import sys
 
 from src.models import BBombsBot
 
+if sys.version_info[0] != 3 or sys.version_info[1] < 11:
+    raise RuntimeError("Incompatable python version, must be 3.11 or greater.")
+
 try:
     from .config import Config
+
 except ImportError:
-    logging.fatal("Config file not found aborting.")
+    logging.fatal("Config file not found aborting")
     exit(1)
+
+if os.name != "nt":
+    try:
+        import uvloop
+
+        uvloop.install()
+
+        logging.info("Running with uvloop event loop")
+
+    except ImportError:
+        logging.warning(
+            "Failed to import uvloop, running with default async event loop"
+        )
 
 bot = BBombsBot(Config())
 
