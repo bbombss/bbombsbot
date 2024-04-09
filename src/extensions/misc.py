@@ -6,7 +6,7 @@ import lightbulb
 import psutil
 
 from src.models import BBombsBot
-from src.static import DEFAULT_EMBED_COLOUR, INVITE_LINK_TEMPLATE
+from src.static import *
 
 misc = lightbulb.Plugin("misc")
 
@@ -14,16 +14,18 @@ misc = lightbulb.Plugin("misc")
 @misc.command
 @lightbulb.command("ping", description="Get performance statistics for the bot")
 @lightbulb.implements(lightbulb.SlashCommand)
-async def ping(ctx: lightbulb.SlashContext):
+async def ping(ctx: lightbulb.SlashContext) -> None:
     start = perf_counter_ns()
-    await ctx.respond("Testing...")
+    await ctx.respond(f"{LOADING_EMOJI} Testing...")
     end = perf_counter_ns()
 
     tdelta = datetime.datetime.now() - ctx.app.start_time
     tdelta_str = str(tdelta).split(".")[0].split(":")
 
     me = ctx.app.get_me()
+
     process = psutil.Process()
+    gateway_latency = f"{ctx.app.heartbeat_latency * 1000:,.0f}ms"
 
     await ctx.edit_last_response(
         "",
@@ -38,8 +40,7 @@ Source: [Click here](https://github.com/bbombss/bbombsbot)""",
         )
         .add_field(
             name="Latency",
-            value=f"""Gateway: {ctx.bot.heartbeat_latency * 1000:,.0f}ms
-            REST: {(end-start)/ 1000000:,.0f}ms""",
+            value=f"Gateway: {gateway_latency}\nREST: {(end-start)/ 1000000:,.0f}ms",
         )
         .add_field(name="CPU Use", value=f"{round(psutil.cpu_percent())}%", inline=True)
         .add_field(

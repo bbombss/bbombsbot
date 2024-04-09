@@ -11,6 +11,8 @@ from src.models.database import Database
 from src.models.errors import ApplicationStateError
 from src.static import DEFAULT_EMBED_COLOUR
 
+logger = logging.getLogger(__name__)
+
 
 class BBombsBot(lightbulb.BotApp):
     """Subclass of lightbulb BotApp to add special functionality.
@@ -109,7 +111,7 @@ class BBombsBot(lightbulb.BotApp):
         return self._start_time
 
     @property
-    def db(self):
+    def db(self) -> Database:
         """The database connection of the bot."""
         return self._db
 
@@ -128,7 +130,7 @@ class BBombsBot(lightbulb.BotApp):
         )
 
     async def on_starting(self, event: hikari.StartingEvent) -> None:
-        logging.info("Initialising BBombsBot...")
+        logger.info("Initialising BBombsBot...")
 
         await self.db.connect()
         await self.db.migrate_schema()
@@ -143,7 +145,7 @@ class BBombsBot(lightbulb.BotApp):
             self._user_id = user.id
 
         if self._debug_mode:
-            logging.warning("Debug mode is active")
+            logger.warning("Debug mode is active")
 
     async def on_guild_available(self, event: hikari.GuildAvailableEvent) -> None:
         if self.is_started:
@@ -162,7 +164,7 @@ class BBombsBot(lightbulb.BotApp):
                     guild,
                 )
 
-        logging.info(
+        logger.info(
             f"Bot initialised as {self.get_me()} in {len(self._startup_guilds)} guilds"
         )
 
@@ -171,14 +173,14 @@ class BBombsBot(lightbulb.BotApp):
         self._bot_started = True
         self._start_time = datetime.datetime.now()
 
-        logging.info("BBombsBot initialised successfuly")
+        logger.info("BBombsBot initialised successfuly")
 
         self.unsubscribe(hikari.GuildAvailableEvent, self.on_guild_available)
 
     async def on_guild_join(self, event: hikari.GuildJoinEvent) -> None:
         await self.db.add_guild(event.guild_id)
 
-        logging.info(f"BBombsBot in new guild: {event.guild.name} ({event.guild_id})")
+        logger.info(f"BBombsBot in new guild: {event.guild.name} ({event.guild_id})")
 
         me = event.guild.get_my_member()
 
@@ -192,8 +194,8 @@ class BBombsBot(lightbulb.BotApp):
                 embed=hikari.Embed(
                     title="👋  Greetings",
                     description=
-                    """I'm always listening for commands type `/` to see what I can do.
-                    In the meantime I'll get things set up!""",
+"""I'm always listening for commands type `/` to see what I can do.
+In the meantime I'll get things set up!""",
                     colour=DEFAULT_EMBED_COLOUR,
                 ).set_thumbnail(me.avatar_url)
             )
@@ -202,11 +204,11 @@ class BBombsBot(lightbulb.BotApp):
 
     async def on_guild_leave(self, event: hikari.GuildLeaveEvent) -> None:
         await self.db.remove_guild(event.guild_id)
-        logging.info(f"BBombsBot removed from guild: {event.guild_id}")
+        logger.info(f"BBombsBot removed from guild: {event.guild_id}")
 
     async def on_stop(self, event: hikari.StoppedEvent) -> None:
         await self.db.close()
-        logging.info("Database has been closed.")
+        logger.info("BBombsBot has been shut down")
 
 
 # Copyright (C) 2024 BBombs

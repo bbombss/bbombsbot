@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import importlib
 import logging
 import os
+import typing as t
 
 import aiofiles
 import asyncpg
 import hikari
+
+if t.TYPE_CHECKING:
+    from src.models.bot import BBombsBot
 
 from src.config import Config
 from src.models.errors import DatabaseStateError
@@ -16,7 +22,7 @@ class Database:
     """Database class which implements asyncpg to access postgresql database."""
 
     def __init__(self, app) -> None:
-        self._app = app
+        self._app: BBombsBot = app
         self._db_name: str = Config.POSTGRES_DB
         self._user: str = Config.POSTGRES_USER
         self._host: str = Config.POSTGRES_HOST
@@ -31,7 +37,7 @@ class Database:
         )
 
     @property
-    def app(self):
+    def app(self) -> BBombsBot:
         """Returns the current application."""
         return self._app
 
@@ -140,7 +146,7 @@ class Database:
         """
         return await self.pool.fetchrow(query, *args)
 
-    async def fetchval(self, query: str, *args, column: int = 0):
+    async def fetchval(self, query: str, *args, column: int = 0) -> t.Any:
         """Execute an SQL Query and get the returned record.
 
         Parameters
