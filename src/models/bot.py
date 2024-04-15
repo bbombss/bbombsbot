@@ -1,12 +1,15 @@
 import datetime
 import logging
 import os
+import typing as t
 from pathlib import Path
 
 import hikari
 import lightbulb
+import miru
 
 from src.config import Config
+from src.models.context import *
 from src.models.database import Database
 from src.models.errors import ApplicationStateError
 from src.static import DEFAULT_EMBED_COLOUR
@@ -74,6 +77,7 @@ class BBombsBot(lightbulb.BotApp):
         self._startup_guilds: list = []
 
         self._db = Database(self)
+        self._miru_client = miru.Client(self)
 
     @property
     def is_started(self) -> bool:
@@ -115,6 +119,11 @@ class BBombsBot(lightbulb.BotApp):
         """The database connection of the bot."""
         return self._db
 
+    @property
+    def miru_client(self) -> miru.Client:
+        """The database connection of the bot."""
+        return self._miru_client
+
     def run(self) -> None:
         """Start listeners and bot activity."""
         self.subscribe(hikari.StartingEvent, self.on_starting)
@@ -129,6 +138,21 @@ class BBombsBot(lightbulb.BotApp):
             activity=hikari.Activity(name="you ;)", type=hikari.ActivityType.WATCHING)
         )
 
+    async def get_slash_context(
+        self,
+        event: hikari.InteractionCreateEvent,
+        command: lightbulb.SlashCommand,
+        cls: t.Type[lightbulb.SlashContext] = BBombsBotSlashContext,
+    ) -> BBombsBotSlashContext:
+        return await super().get_slash_context(event, command, cls)
+
+    async def get_prefix_context(
+        self,
+        event: hikari.MessageCreateEvent,
+        cls: t.Type[lightbulb.PrefixContext] = BBombsBotPrefixContext,
+    ) -> BBombsBotPrefixContext:
+        return await super().get_prefix_context(event, cls)
+
     async def on_starting(self, event: hikari.StartingEvent) -> None:
         logger.info("Initialising BBombsBot...")
 
@@ -139,7 +163,7 @@ class BBombsBot(lightbulb.BotApp):
             os.path.join(self.base_dir, "src", "extensions"), must_exist=True
         )
 
-    async def on_started(self, event: hikari.StartingEvent) -> None:
+    async def on_started(self, event: hikari.StartedEvent) -> None:
         user = self.get_me()
         if user:
             self._user_id = user.id
@@ -153,9 +177,7 @@ class BBombsBot(lightbulb.BotApp):
 
         self._startup_guilds.append(event.guild_id)
 
-    async def on_lightbulb_started(
-        self, event: lightbulb.LightbulbStartedEvent
-    ) -> None:
+    async def on_lightbulb_started(self, event: lightbulb.LightbulbStartedEvent) -> None:
         async with self.db.pool.acquire() as con:
             for guild in self._startup_guilds:
                 await con.execute(
@@ -189,16 +211,15 @@ class BBombsBot(lightbulb.BotApp):
 
         system_channel = event.guild.get_channel(event.guild.system_channel_id)
 
-        try:
-            await system_channel.send(
-                embed=hikari.Embed(
-                    title="👋  Greetings",
-                    description=
-"""I'm always listening for commands type `/` to see what I can do.
+        welcome_embed = hikari.Embed(
+            title="👋  Greetings",
+            description="""I'm always listening for commands type / to see what I can do.
 In the meantime I'll get things set up!""",
-                    colour=DEFAULT_EMBED_COLOUR,
-                ).set_thumbnail(me.avatar_url)
-            )
+            colour=DEFAULT_EMBED_COLOUR,
+        ).set_thumbnail(me.avatar_url)
+
+        try:
+            await system_channel.send(embed=welcome_embed)
         except hikari.ForbiddenError:
             return
 

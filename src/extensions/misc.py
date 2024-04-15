@@ -5,18 +5,18 @@ import hikari
 import lightbulb
 import psutil
 
-from src.models import BBombsBot
-from src.static import *
+from src.models import BBombsBot, BBombsBotSlashContext
+from src.static.const import *
 
 misc = lightbulb.Plugin("misc")
 
 
 @misc.command
-@lightbulb.command("ping", description="Get performance statistics for the bot")
+@lightbulb.command("info", description="Get performance statistics for the bot")
 @lightbulb.implements(lightbulb.SlashCommand)
-async def ping(ctx: lightbulb.SlashContext) -> None:
+async def bot_info(ctx: BBombsBotSlashContext) -> None:
     start = perf_counter_ns()
-    await ctx.respond(f"{LOADING_EMOJI} Testing...")
+    await ctx.wait()
     end = perf_counter_ns()
 
     tdelta = datetime.datetime.now() - ctx.app.start_time

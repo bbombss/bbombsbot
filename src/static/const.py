@@ -4,7 +4,7 @@ __all__ = [
     "WARN_EMBED_COLOUR",
     "FAIL_EMBED_COLOUR",
     "SUCCESS_EMOJI",
-    "CANCEL_EMOJI",
+    "FAIL_EMOJI",
     "LOADING_EMOJI",
     "INVITE_LINK_TEMPLATE",
 ]
@@ -14,10 +14,10 @@ import hikari
 DEFAULT_EMBED_COLOUR: hikari.Colour = hikari.Colour(0x0C4B59)
 SUCCESS_EMBED_COLOUR: hikari.Colour = hikari.Colour(0x0D6623)
 WARN_EMBED_COLOUR: hikari.Colour = hikari.Colour(0xAB6B13)
-FAIL_EMBED_COLOUR: hikari.Colour = hikari.Colour(0x6B0E07)
+FAIL_EMBED_COLOUR: hikari.Colour = hikari.Colour(0x9C251C)
 
 SUCCESS_EMOJI: str = "<:confirm:1219174344203436042>"
-CANCEL_EMOJI: str = "<:cancel:1219185372710572092>"
+FAIL_EMOJI: str = "<:cancel:1219185372710572092>"
 LOADING_EMOJI: str = "<a:loading:1220563982499451042>"
 
 INVITE_LINK_TEMPLATE: str = "https://discord.com/oauth2/authorize?client_id={}&permissions=1099914800342&scope=bot+applications.commands"
