@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing as t
 
 import hikari
+import hikari.errors
 import lightbulb
 
 from src.models.views import ConfirmationView
@@ -11,7 +12,7 @@ from src.static import *
 if t.TYPE_CHECKING:
     from src.models.bot import BBombsBot
 
-__all__ = ["BBombsBotSlashContext", "BBombsBotPrefixContext"]
+__all__ = ["BBombsBotContext", "BBombsBotSlashContext", "BBombsBotPrefixContext"]
 
 
 class BBombsBotContext(lightbulb.Context):
@@ -26,7 +27,11 @@ class BBombsBotContext(lightbulb.Context):
         await self.respond(f"{LOADING_EMOJI} Waiting for server...")
 
     async def respond_with_success(
-        self, content: str, title: str | None = None, edit: bool = False
+        self,
+        content: str,
+        title: str | None = None,
+        edit: bool = False,
+        ephemeral: bool = False,
     ) -> lightbulb.ResponseProxy:
         """Create a response with a success embed.
 
@@ -38,6 +43,8 @@ class BBombsBotContext(lightbulb.Context):
             Title to be passed to the title feild of the embed, defaults to None.
         edit : bool, optional
             Wether or not an original response should be edited.
+        ephemeral : bool, optional
+            Wether the message should have the ephemeral flag, defaults to False.
 
         Returns
         -------
@@ -51,12 +58,19 @@ class BBombsBotContext(lightbulb.Context):
             colour=SUCCESS_EMBED_COLOUR,
         )
 
-        if edit:
-            return await self.edit_last_response("", embed=embed, components=[])
-        return await self.respond(embed=embed)
+        flags = hikari.MessageFlag.EPHEMERAL if ephemeral else None
+
+        if edit and await self.edit_last_response("", embed=embed, components=[]):
+            return
+
+        return await self.respond(embed=embed, flags=flags)
 
     async def respond_with_failure(
-        self, content: str, title: str | None = None, edit: bool = False
+        self,
+        content: str,
+        title: str | None = None,
+        edit: bool = False,
+        ephemeral: bool = False,
     ) -> lightbulb.ResponseProxy:
         """Create a response with a failure embed.
 
@@ -67,7 +81,9 @@ class BBombsBotContext(lightbulb.Context):
         title : str, optional
             Title to be passed to the title feild of the embed, defaults to None.
         edit : bool, optional
-            Wether or not an original response should be edited.
+            Wether or not an original response should be edited, defaults to False.
+        ephemeral : bool, optional
+            Wether the message should have the ephemeral flag, defaults to False.
 
         Returns
         -------
@@ -81,9 +97,12 @@ class BBombsBotContext(lightbulb.Context):
             colour=FAIL_EMBED_COLOUR,
         )
 
-        if edit:
-            return await self.edit_last_response("", embed=embed, components=[])
-        return await self.respond(embed=embed)
+        flags = hikari.MessageFlag.EPHEMERAL if ephemeral else None
+
+        if edit and await self.edit_last_response("", embed=embed, components=[]):
+            return
+
+        return await self.respond(embed=embed, flags=flags)
 
     async def get_confirmation(
         self,
