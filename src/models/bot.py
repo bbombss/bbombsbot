@@ -11,6 +11,7 @@ import miru
 from src.config import Config
 from src.models.context import *
 from src.models.database import Database
+from src.models.automod import AutoMod
 from src.models.errors import ApplicationStateError
 from src.static import DEFAULT_EMBED_COLOUR
 
@@ -43,8 +44,8 @@ class BBombsBot(lightbulb.BotApp):
             | hikari.api.CacheComponents.MEMBERS
             | hikari.api.CacheComponents.MESSAGES
             | hikari.api.CacheComponents.ROLES,
-            max_messages=1000,
-            max_dm_channel_ids=50,
+            max_messages=2000,
+            max_dm_channel_ids=100,
         )
 
         intents = (
@@ -78,6 +79,7 @@ class BBombsBot(lightbulb.BotApp):
 
         self._db = Database(self)
         self._miru_client = miru.Client(self)
+        self._auto_mod = AutoMod(self)
 
     @property
     def is_started(self) -> bool:
@@ -97,7 +99,7 @@ class BBombsBot(lightbulb.BotApp):
     @property
     def user_id(self) -> hikari.Snowflake:
         """The bots user's discord user id."""
-        if self.user_id is None:
+        if self._user_id is None:
             raise ApplicationStateError(
                 "Bot user_id is unavailable until bot has started"
             )
@@ -121,8 +123,13 @@ class BBombsBot(lightbulb.BotApp):
 
     @property
     def miru_client(self) -> miru.Client:
-        """The database connection of the bot."""
+        """The miru client of the bot."""
         return self._miru_client
+    
+    @property
+    def auto_mod(self) -> AutoMod:
+        """The auto moderator of the bot."""
+        return self._auto_mod
 
     def run(self) -> None:
         """Start listeners and bot activity."""

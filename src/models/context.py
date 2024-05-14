@@ -6,11 +6,11 @@ import hikari
 import hikari.errors
 import lightbulb
 
-from src.models.views import ConfirmationView
-from src.static import *
-
 if t.TYPE_CHECKING:
     from src.models.bot import BBombsBot
+
+from src.models.views import ConfirmationView
+from src.static import *
 
 __all__ = ["BBombsBotContext", "BBombsBotSlashContext", "BBombsBotPrefixContext"]
 
@@ -20,11 +20,12 @@ class BBombsBotContext(lightbulb.Context):
 
     @property
     def app(self) -> BBombsBot:
+        """Returns the current application."""
         return super().app
 
     async def wait(self) -> lightbulb.ResponseProxy:
         """Create a response with loading a message."""
-        await self.respond(f"{LOADING_EMOJI} Waiting for server...")
+        return await self.respond(f"{LOADING_EMOJI} Waiting for server...")
 
     async def respond_with_success(
         self,
@@ -61,7 +62,7 @@ class BBombsBotContext(lightbulb.Context):
         flags = hikari.MessageFlag.EPHEMERAL if ephemeral else None
 
         if edit and await self.edit_last_response("", embed=embed, components=[]):
-            return
+            return self.previous_response
 
         return await self.respond(embed=embed, flags=flags)
 
@@ -100,7 +101,7 @@ class BBombsBotContext(lightbulb.Context):
         flags = hikari.MessageFlag.EPHEMERAL if ephemeral else None
 
         if edit and await self.edit_last_response("", embed=embed, components=[]):
-            return
+            return self.previous_response
 
         return await self.respond(embed=embed, flags=flags)
 
@@ -137,14 +138,15 @@ class BBombsBotContext(lightbulb.Context):
 
         """
         view = ConfirmationView(self, timeout, confirm_msg, cancel_msg)
+        confirm_msg: hikari.Message | None = None
 
         if edit:
-            msg = await self.edit_last_response(*args, components=view, **kwargs)
-        else:
+            confirm_msg = await self.edit_last_response(*args, components=view, **kwargs)
+        if confirm_msg is None:
             resp = await self.respond(*args, components=view, **kwargs)
-            msg = await resp.message()
+            confirm_msg = await resp.message()
 
-        self.app.miru_client.start_view(view, bind_to=msg)
+        self.app.miru_client.start_view(view, bind_to=confirm_msg)
         await view.wait()
         return view.value
 

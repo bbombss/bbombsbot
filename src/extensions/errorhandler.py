@@ -32,18 +32,20 @@ async def log_error(
 
     """
     error_lines = error.splitlines()
-    paginator = lightbulb.utils.StringPaginator(prefix="```\n", suffix="```")
+    paginator = lightbulb.utils.StringPaginator(prefix="```py\n", suffix="```")
 
     if ctx:
         guild = ctx.get_guild()
         if guild:
-            msg = f"**Uncaught exception in command {ctx.command.name} invoked by {ctx.author} ({ctx.author.id}) in {guild.name} ({ctx.guild_id})**"
+            msg = f"# Uncaught exception in command {ctx.command.name} invoked by {ctx.author} ({ctx.author.id}) in {guild.name} ({ctx.guild_id})"
 
     elif event:
-        msg = f"**Uncaught exception in event {event.failed_event.__class__.__name__}**"
+        msg = f"# Uncaught exception in event {event.failed_event.__class__.__name__}"
 
     else:
-        msg = "**Uncaught exception:**"
+        msg = "# Uncaught exception:"
+
+    paginator.add_line(msg)
 
     for line in error_lines:
         paginator.add_line(line)
@@ -53,10 +55,11 @@ async def log_error(
     if not logs_channel:
         return
 
-    await errorhandler.app.rest.create_message(logs_channel, msg)
-
-    for page in paginator.build_pages():
-        await errorhandler.app.rest.create_message(logs_channel, page)
+    try:
+        for page in paginator.build_pages():
+            await errorhandler.app.rest.create_message(logs_channel, page)
+    except hikari.ForbiddenError:
+        logger.error("Missing access to logs channel.")
 
 
 @errorhandler.listener(lightbulb.SlashCommandErrorEvent)

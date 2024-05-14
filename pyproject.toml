@@ -42,7 +42,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.13"
-hikari = "2.0.0.dev124"
+hikari = "2.0.0.dev125"
 hikari-lightbulb = "~=2.3.5"
 asyncpg = "~=0.29.0"
 psutil = "^5.9.6"
