@@ -10,8 +10,11 @@ from src.static.const import *
 
 misc = lightbulb.Plugin("misc")
 
+psutil.cpu_percent()
+
 
 @misc.command
+@lightbulb.add_cooldown(1, 10, lightbulb.buckets.UserBucket)
 @lightbulb.command("info", description="Get performance statistics for the bot")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def bot_info(ctx: BBombsBotSlashContext) -> None:

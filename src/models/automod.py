@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import enum
 import typing as t
+from contextlib import suppress
 
 import hikari
+from Levenshtein import distance
 
 if t.TYPE_CHECKING:
     from src.models.bot import BBombsBot
@@ -12,12 +14,21 @@ from src.models.ratelimiter import MessageRateLimiter
 from src.static.re import *
 from src.utils import can_mod
 
-MESSAGE_SPAM_RATELIMITER = MessageRateLimiter(5, 6)
+MESSAGE_SPAM_RATELIMITER = MessageRateLimiter(5, 5)
 DUPLICATE_SPAM_RATELIMITER = MessageRateLimiter(10, 4, 4)
+INVITE_SPAM_RATELIMITER = MessageRateLimiter(30, 2)
+LINK_SPAM_RATELIMITER = MessageRateLimiter(30, 3)
+ATTACHMENT_SPAM_RATELIMITER = MessageRateLimiter(30, 2)
+MENTION_SPAM_RATELIMITER = MessageRateLimiter(30, 3, 2)
+
+BLOCK_INVITES = True
+BLOCK_FAKE_URL = True
+MENTION_FILTER_LIMIT = 9
 
 
 class AutoModMediaType(enum.Enum):
     """Types of media the automod handles as enums."""
+
     MENTION = "mentions"
     INVITE = "invites"
     LINK = "links"
@@ -30,6 +41,7 @@ class AutoModMediaType(enum.Enum):
 
 class AutoModOffenceType(enum.Enum):
     """Types of offences the automod handles as enums."""
+
     SPAM = "spam"
     BLOCKED = "blocked"
     FILTERED = "filtered"
@@ -92,16 +104,17 @@ class AutoMod:
             The reason this message is being moderated.
 
         """
-        print("!!! PUNISH")
+        with suppress(hikari.NotFoundError):
+            message.delete()
 
-    async def check_for_message_spam(self, message: hikari.PartialMessage) -> bool:
+    async def find_message_spam(self, message: hikari.PartialMessage) -> bool:
         """Check for common types of spam.
 
         Return False if the check fails otherwise True.
         """
         MESSAGE_SPAM_RATELIMITER.add_message(message)
         if MESSAGE_SPAM_RATELIMITER.is_rate_limited(message):
-            reason = "Spamming messages."
+            reason = "sending messages too frequently."
             await self.moderate(
                 message, AutoModOffenceType.SPAM, AutoModMediaType.MESSAGE, reason
             )
@@ -109,22 +122,149 @@ class AutoMod:
 
         return True
 
-    async def check_for_duplicate_spam(self, message: hikari.PartialMessage) -> bool:
+    async def find_duplicate_spam(self, message: hikari.PartialMessage) -> bool:
         """Check for duplicate message spamming.
 
         Returns False if the check fails otherwise True.
         """
+        if not message.content:
+            return True
+
         queue = DUPLICATE_SPAM_RATELIMITER.get_messages(message)
 
         if queue is None:
             DUPLICATE_SPAM_RATELIMITER.add_message(message)
+            return True
 
-        elif queue[-1].strip() == message.content.strip():
+        prev_msg = self.app.cache.get_message(queue[-1])
+        print(prev_msg.content)
+        if prev_msg and distance(prev_msg.content.strip(), message.content.strip()) < 5:
+            print("yes")
             DUPLICATE_SPAM_RATELIMITER.add_message(message)
             if DUPLICATE_SPAM_RATELIMITER.is_rate_limited(message):
-                reason = "Spamming duplicate messages."
+                reason = "spamming copied and pasted messages."
                 await self.moderate(
                     message, AutoModOffenceType.SPAM, AutoModMediaType.DUPLICATE, reason
+                )
+                return False
+
+        return True
+
+    async def find_invite_spam(self, message: hikari.PartialMessage) -> bool:
+        """Check for messages with invites being spammed.
+
+        Return False if the check fails otherwise True.
+        """
+        if message.content and INVITE_REGEX.findall(message.content):
+            INVITE_SPAM_RATELIMITER.add_message(message)
+
+        if INVITE_SPAM_RATELIMITER.is_rate_limited(message):
+            reason = "sending discord invites too frequently."
+            await self.moderate(
+                message, AutoModOffenceType.SPAM, AutoModMediaType.INVITE, reason
+            )
+            return False
+
+        return True
+
+    async def find_link_spam(self, message: hikari.PartialMessage) -> bool:
+        """Check for messages with links being spammed.
+
+        Return False if the check fails otherwise True.
+        """
+        if message.content and URL_REGEX.findall(message.content):
+            LINK_SPAM_RATELIMITER.add_message(message)
+
+        if LINK_SPAM_RATELIMITER.is_rate_limited(message):
+            reason = "sending links too frequently."
+            await self.moderate(
+                message, AutoModOffenceType.SPAM, AutoModMediaType.LINK, reason
+            )
+            return False
+
+        return True
+
+    async def find_attach_spam(self, message: hikari.PartialMessage) -> bool:
+        """Check for messages with attachments being spammed.
+
+        Return False if the check fails otherwise True.
+        """
+        if message.attachments:
+            ATTACHMENT_SPAM_RATELIMITER.add_message(message)
+
+        if ATTACHMENT_SPAM_RATELIMITER.is_rate_limited(message):
+            reason = "sending attachments too frequently."
+            await self.moderate(
+                message, AutoModOffenceType.SPAM, AutoModMediaType.ATTACHMENT, reason
+            )
+            return False
+
+        return True
+
+    async def find_mention_spam(self, message: hikari.PartialMessage) -> bool:
+        """Check for messages with mentions being spammed.
+
+        Return False if the check fails otherwise True.
+        """
+        if message.user_mentions:
+            for mention in message.user_mentions.values():
+                if mention.is_bot or mention.id == message.author.id:
+                    return True
+
+            MENTION_SPAM_RATELIMITER.add_message(message)
+
+        if MENTION_SPAM_RATELIMITER.is_rate_limited(message):
+            reason = "mentioning users too frequently."
+            await self.moderate(
+                message, AutoModOffenceType.SPAM, AutoModMediaType.MENTION, reason
+            )
+            return False
+
+        return True
+
+    async def block_invites(self, message: hikari.PartialMessage) -> bool:
+        """Check for messages with invite links.
+
+        Return False if the check fails otherwise True.
+        """
+        # Placeholder for custom automod configs
+        if BLOCK_INVITES and message.content and INVITE_REGEX.findall(message.content):
+            reason = "invite links are not allowed."
+            await self.moderate(
+                message, AutoModOffenceType.BLOCKED, AutoModMediaType.INVITE, reason
+            )
+            return False
+
+        return True
+
+    async def block_fake_links(self, message: hikari.PartialMessage) -> bool:
+        """Check for messages with hyperlinks where the hyperlink text is also a url.
+
+        Return False if the check fails otherwise True.
+        """
+        # Placeholder for custom automod configs
+        if BLOCK_FAKE_URL and message.content and FAKE_URL_REGEX.findall(message.content):
+            reason = "hyperlink contains link as text string."
+            await self.moderate(
+                message, AutoModOffenceType.BLOCKED, AutoModMediaType.HYPERLINK, reason
+            )
+            return False
+
+    async def filter_mentions(self, message: hikari.PartialMessage) -> bool:
+        """Check for messages with lots of mentions of different users.
+
+        Return False if the check fails otherwise True.
+        """
+        if mentions := message.user_mentions:
+            count = sum(
+                mention.id != message.author.id and not mention.is_bot
+                for mention in mentions.values()
+            )
+
+            if count > MENTION_FILTER_LIMIT:
+                reason = "mentioning too many users in one message."
+                await self.moderate(
+                    message, AutoModOffenceType.FILTERED, AutoModMediaType.MENTION, reason
                 )
                 return False
 
@@ -147,8 +287,25 @@ class AutoMod:
 
         if isinstance(event, hikari.GuildMessageCreateEvent):
             all(
-                await self.check_for_message_spam(message),
-                await self.check_for_duplicate_spam(message),
+                (
+                    await self.find_message_spam(message),
+                    await self.find_duplicate_spam(message),
+                    await self.find_invite_spam(message),
+                    await self.find_link_spam(message),
+                    await self.find_attach_spam(message),
+                    await self.find_mention_spam(message),
+                    await self.block_invites(message),
+                    await self.block_fake_links(message),
+                    await self.filter_mentions(message),
+                )
+            )
+        elif isinstance(event, hikari.GuildMessageUpdateEvent):
+            all(
+                (
+                    await self.block_invites(message),
+                    await self.block_fake_links(message),
+                    await self.filter_mentions(message),
+                )
             )
 
 

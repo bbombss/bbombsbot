@@ -9,9 +9,9 @@ import lightbulb
 import miru
 
 from src.config import Config
+from src.models.automod import AutoMod
 from src.models.context import *
 from src.models.database import Database
-from src.models.automod import AutoMod
 from src.models.errors import ApplicationStateError
 from src.static import DEFAULT_EMBED_COLOUR
 

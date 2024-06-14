@@ -1,4 +1,5 @@
 import hikari
+import hikari.guilds
 import lightbulb
 
 from src.static.re import *
@@ -20,7 +21,7 @@ def has_permissions(
         Defaults to True.
 
     """
-    member_perms = lightbulb.utils.permissions_for(member)
+    member_perms: hikari.Permissions = lightbulb.utils.permissions_for(member)
 
     if member_perms == hikari.Permissions.NONE:
         return False
@@ -56,7 +57,10 @@ def can_mod(member: hikari.Member, bot: hikari.Member) -> bool:
     if higher_role(member, bot):
         return False
 
-    perms = hikari.Permissions.ADMINISTRATOR | hikari.Permissions.MANAGE_GUILD
+    perms: hikari.Permissions = (
+        hikari.Permissions.ADMINISTRATOR | 
+        hikari.Permissions.MANAGE_GUILD
+        )
 
     if has_permissions(member, perms, strict=False):
         return False

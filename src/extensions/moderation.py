@@ -10,7 +10,7 @@ moderation = lightbulb.Plugin("moderation")
 @moderation.listener(hikari.GuildMessageUpdateEvent)
 async def run_automod(
     event: hikari.GuildMessageUpdateEvent | hikari.GuildMessageCreateEvent,
-):
+):  
     await moderation.app.auto_mod.check(event)
 
 

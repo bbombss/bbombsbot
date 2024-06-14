@@ -17,7 +17,11 @@ class RateLimiterContext(t.Protocol):
 
     @property
     def author(self) -> hikari.UndefinedOr[hikari.User]:
-        pass
+        ...
+
+    @property
+    def guild_id(self) -> hikari.Snowflake | None:
+        ...
 
 
 class Request(object):
@@ -49,7 +53,7 @@ class RateLimiter:
         return cls(
             bucket=bucket,
             reset_at=time.monotonic() + bucket.timespan,
-            remaining_requests=bucket.count+1,
+            remaining_requests=bucket.count + 1,
         )
 
     async def _run_queue(self) -> None:
@@ -148,38 +152,41 @@ class MessageRateLimiter(RateLimiterBucket):
         count : int
             The number of requests allowed for a timespan before ratelimiting occurs.
         message_queue_size : int
-            The max number of previous messages sent by this context's member to store.
-            Defaults to 0 meaning no previous messages are stored.
+            The number of message snowflakes sent by this context's member to store.
+            Defaults to 0 meaning no previous message snowflakes are stored.
 
         """
         self.message_queue_size: int = message_queue_size
 
-        self._message_queue: dict[str, t.Deque[str]] = {}
+        self._message_queue: dict[str, t.Deque[hikari.Snowflake]] = {}
         """Dict of keys representing members and a list of their last few messages."""
 
         super().__init__(timespan, count)
 
     def _get_key(self, ctx: hikari.PartialMessage) -> str:
-        if not ctx.content or not ctx.author:
-            raise ValueError(
-                "context missing required parameters."
-            )
+        if not ctx.author or not ctx.guild_id:
+            raise ValueError("context missing required parameters.")
 
         return str(ctx.guild_id) + "-" + str(ctx.author.id)
 
-    def add_message(self, ctx: hikari.PartialMessage) -> None:
+    def add_message(self, ctx: hikari.Message) -> None:
         """Add a message to this context's queue and start the ratelimiter."""
         self.add(ctx)
         if self.message_queue_size > 0:
             queue = self._message_queue.setdefault(
                 self._get_key(ctx), deque(maxlen=self.message_queue_size)
             )
-            queue.append(ctx.content)
+            queue.append(ctx.id)
 
-    def get_messages(self, ctx: hikari.PartialMessage) -> list[str] | None:
+    def get_messages(self, ctx: hikari.Message) -> list[hikari.Snowflake] | None:
         """Get the message queue for this context.
 
-        Will be None if there are no messages for this context.
+        Returns
+        -------
+        list[hikari.Snowflakes] | None
+            A list of snowflakes for messages sent by this member or
+            none if this context has no message queue.
+
         """
         try:
             return list(self._message_queue[self._get_key(ctx)])
